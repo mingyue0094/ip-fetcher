@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,9 +18,6 @@ const (
 	baseURL      = "https://www.cloudflare.com/cdn-cgi/trace"
 	userAgent    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
 	timeout      = 10 * time.Second
-	corsAllowed  = []string{"*"}
-	corsMethods  = []string{"GET", "POST", "OPTIONS"}
-	corsHeaders  = []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"}
 )
 
 // Service 封装获取 IP 的业务逻辑
@@ -127,30 +125,33 @@ func (h *Handler) HandleIP(w http.ResponseWriter, r *http.Request) {
 		"ip":    ip,
 		"status": http.StatusOK,
 	}
-	fmt.Fprintf(w, "%s", jsonResponse)
+	json.NewEncoder(w).Encode(jsonResponse)
 }
 
 func main() {
 	service := NewService()
+	handler := NewHandler(service)
 	router := chi.NewRouter()
 
 	// 启用 CORS
 	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   corsAllowed,
-		AllowedMethods:   corsMethods,
-		AllowedHeaders:   corsHeaders,
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
 
 	// 路由定义
-	router.Post("/", h.HandleIP)
-
+	router.Get("/", handler.HandleIP)
+	router.Options("/", handler.HandleIP)
 	port := ":8080"
 	fmt.Printf("IP Service API started on http://localhost%s\n", port)
-	fmt.Println("API Docs: POST /")
+	fmt.Println("API Docs: GET /")
 
-	if err := router.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := http.ListenAndServe(port, router); err != nil && err != http.ErrServerClosed {
 		fmt.Printf("Server error: %v\n", err)
 	}
 }
+
+
