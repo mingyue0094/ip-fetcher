@@ -1,0 +1,12 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Build artifacts
+*.exe
+*.dll
+*.so
